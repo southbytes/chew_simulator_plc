@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <plcProject caseSensitive="false" extendedIdNames="false" useCustomWorkspace="true" debugMode="false" extcheck="true" SFCControl="false" strictPointerCheck="true" verboseWarningMode="false" iecTypeConversionRules="false" PNContactsOnEachNetwork="false" LocalVarsFBAccess="false" strictEnumsCheck="true" copyWarningThreshold="200" version="2.11" useLD2="true" useXPLCFiles="false" useFBMethods="false" customSortOfProjectTree="false" autoDerefPointers="false">
 	<image>chew_simulator.imgx</image>
-	<commSettings>Modbus:247,1000,M#COM:18,38400,N,8,1,H</commSettings>
+	<commSettings>Modbus:247,1000,M#COM:6,38400,N,8,1,H</commSettings>
 	<sources>
 		<main>
 			<resources>
 				<resource name="ArduinoOpta" processor="ARMThumb2_VFP2">
-					<task name="Fast" interval="t#10000us" priority="0" type="cyclic" hidden="false" dynamic="false" descr="Fast task"/>
+					<task name="Fast" interval="t#50000us" priority="0" type="cyclic" hidden="false" dynamic="false" descr="Fast task"/>
 					<task name="Slow" interval="t#100000us" priority="1" type="cyclic" hidden="false" dynamic="false" descr="Slow task"/>
 					<task name="Background" interval="t#500000us" priority="2" type="cyclic" hidden="false" dynamic="false" descr="Background task"/>
 					<task name="Init" interval="t#0us" priority="3" type="single" hidden="false" dynamic="false" descr="Init task"/>
@@ -83,7 +83,7 @@ m_watchdog_relay := watchdog_relay;
 ]]>
 					</sourceCode>
 				</program>
-				<program name="WatchdogTask" version="1.0.0" creationDate="1780553486" lastModifiedDate="1780977941" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">
+				<program name="WatchdogTask" version="1.0.0" creationDate="1780553486" lastModifiedDate="1781052616" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">
 					<vars>
 						<localVars>
 							<var name="WatchdogTask" type="DINT"/>
@@ -5870,7 +5870,7 @@ END_PROGRAM
 			</src>
 		</aux>
 		<workspace>
-			<root name="chew_simulator" nextID="133">
+			<root name="chew_simulator" nextID="173">
 				<Pou name="main" id="1"/>
 				<GlobalVars name="Global_vars" id="2"/>
 				<Pou name="WatchdogTask" id="5"/>
