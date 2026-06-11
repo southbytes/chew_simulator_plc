@@ -44,6 +44,14 @@
 						<address type="I" typeVar="B" index="10" subIndex="0"/>
 					</var>
 				</group>
+				<group name="I_O_mappings_PWMOut" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="" version="1.0.0">
+					<var name="P1_PERIOD" type="UDINT">
+						<address type="Q" typeVar="B" index="10" subIndex="32"/>
+					</var>
+					<var name="P1_PULSE" type="UDINT">
+						<address type="Q" typeVar="B" index="10" subIndex="36"/>
+					</var>
+				</group>
 			</globalVars>
 			<retainVars/>
 			<constantVars/>
@@ -64,6 +72,9 @@ END_VAR
 				<group name="I_O_mappings_ProgInp">
 					<iecDeclaration active="FALSE"/>
 				</group>
+				<group name="I_O_mappings_PWMOut">
+					<iecDeclaration active="FALSE"/>
+				</group>
 				<group name="Ungrouped_vars">
 					<iecDeclaration active="FALSE"/>
 				</group>
@@ -71,7 +82,7 @@ END_VAR
 			<functions/>
 			<functionBlocks/>
 			<programs>
-				<program name="main" version="1.0.0" creationDate="0" lastModifiedDate="1781072332" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">
+				<program name="main" version="1.0.0" creationDate="0" lastModifiedDate="1781217649" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">
 					<vars>
 						<localVars>
 							<var name="T_IN1" type="REAL"/>
@@ -82,6 +93,9 @@ END_VAR
 							</const>
 							<const name="b" type="REAL">
 								<initValue>-0.0000005775</initValue>
+							</const>
+							<const name="PERIOD" type="INT">
+								<initValue>1000</initValue>
 							</const>
 						</localConsts>
 					</vars>
@@ -101,10 +115,34 @@ END_IF;
 m_watchdog_relay := watchdog_relay;
 
 
-// RTD temperature reading
+//=========== RTD temperature readings ===========
+// Channel I1
 T_IN1 := (-(1.0 / 100.0) * (50.0 * a - 10*sqrt(b * io_temp1 + 25.0 * pow(a, 2.0) - 100.0 * b))) / b;
 // assign to modbus register variable
 m_io_temp_1 := T_IN1;
+
+
+
+
+
+
+
+//=========== Pumps/PWM controls ===========
+P1_PERIOD := PERIOD;  // 1000 us period = 1 kHz
+
+P1_PULSE := m_pwm_pulse_1;
+
+
+IF P1_PULSE <= 0 then
+    P1_PULSE := 0;
+END_IF;
+    
+IF P1_PULSE >= 1000 then
+    P1_PULSE := 999;
+END_IF;
+
+
+
 ]]>
 					</sourceCode>
 				</program>
@@ -5780,6 +5818,8 @@ After function block execution, unless an error occurred, you can use a subset o
 	m_watchdog_relay AT %MW200.0 : BOOL;
 		{G:"Parameters"}
 	m_io_temp_1 AT %MW200.2 : REAL;
+		{G:"Variables"}
+	m_pwm_pulse_1 AT %MW201.0 : INT;
 	END_VAR
 ]]>
 			</src>
@@ -5787,8 +5827,8 @@ After function block execution, unless an error occurred, you can use a subset o
 				<![CDATA[(* Automatically generated, do not edit! *)
 
 VAR_GLOBAL CONSTANT
-$$ParDB : ARRAY[ 0..79 ] OF USINT; { HIDDEN:ON } { INIT:"chew_simulator.PLK+0" }
-$$ParDBLength  : DWORD := 2; { HIDDEN:ON }
+$$ParDB : ARRAY[ 0..119 ] OF USINT; { HIDDEN:ON } { INIT:"chew_simulator.PLK+0" }
+$$ParDBLength  : DWORD := 3; { HIDDEN:ON }
 END_VAR
 
 PROGRAM InitParDB WITH Init;
@@ -5801,9 +5841,9 @@ PROGRAM InitParDB
 		dummyCrc32: UDINT;
 	END_VAR
 
-	dummyCrc32 := 2561630941;
+	dummyCrc32 := 1429717252;
 
-	warningsKiller := sysDBase_SetExtTable( TO_DWORD( ADR($$ParDB) ), $$ParDBLength, 200, TO_DWORD( ADR(%MW200.0) ), 4, 2, 201, 0, 0, 2, 2561630941 );
+	warningsKiller := sysDBase_SetExtTable( TO_DWORD( ADR($$ParDB) ), $$ParDBLength, 200, TO_DWORD( ADR(%MW200.0) ), 4, 2, 201, TO_DWORD( ADR(%MW201.0) ), 1, 2, 1429717252 );
 
 END_PROGRAM
 
@@ -5897,7 +5937,7 @@ END_PROGRAM
 			</src>
 		</aux>
 		<workspace>
-			<root name="chew_simulator" nextID="217">
+			<root name="chew_simulator" nextID="248">
 				<Pou name="main" id="1"/>
 				<GlobalVars name="Global_vars" id="2"/>
 				<Pou name="WatchdogTask" id="5"/>
@@ -5905,6 +5945,7 @@ END_PROGRAM
 				<Pou name="InitTask" id="28"/>
 				<GlobalVars name="Ungrouped_vars" id="99"/>
 				<GlobalVars name="I_O_mappings_ProgInp" id="183"/>
+				<GlobalVars name="I_O_mappings_PWMOut" id="217"/>
 			</root>
 		</workspace>
 	</sources>
@@ -5985,7 +6026,32 @@ END_PROGRAM
 								<subindex>0</subindex>
 							</param>
 						</params>
-						<paramsRO/>
+						<paramsRO>
+							<param>
+								<ipa>24576</ipa>
+								<address>24576</address>
+								<name>m_pwm_pulse_1</name>
+								<typepar>0</typepar>
+								<typetarg>INT</typetarg>
+								<value/>
+								<min/>
+								<max/>
+								<ipamin/>
+								<ipamax/>
+								<scale>1</scale>
+								<offs>0</offs>
+								<um/>
+								<description/>
+								<note/>
+								<form/>
+								<accesslevel>3</accesslevel>
+								<readonly>0</readonly>
+								<shortname/>
+								<size>0</size>
+								<dataBlock>%MW201.0</dataBlock>
+								<subindex>0</subindex>
+							</param>
+						</paramsRO>
 						<menus/>
 						<ioMappings_ProgInp resolution="16">
 							<ioMapping id="0" IOType="0">
@@ -6114,10 +6180,10 @@ void loop()
 								</ioMappings_ProgInp>
 								<ioMappings_PWMOut>
 									<ioMapping id="0">
-										<label/>
+										<label>P1_PERIOD</label>
 									</ioMapping>
 									<ioMapping id="1">
-										<label/>
+										<label>P1_PULSE</label>
 									</ioMapping>
 									<ioMapping id="2">
 										<label/>
