@@ -38,6 +38,12 @@
 						<address type="Q" typeVar="X" index="0" subIndex="0"/>
 					</var>
 				</group>
+				<group name="I_O_mappings_ProgInp" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="" version="1.0.0">
+					<var name="temp1" type="REAL"/>
+					<var name="io_temp1" type="REAL">
+						<address type="I" typeVar="B" index="10" subIndex="0"/>
+					</var>
+				</group>
 			</globalVars>
 			<retainVars/>
 			<constantVars/>
@@ -55,6 +61,9 @@ END_VAR
 				<group name="I_O_mappings_RelayOut">
 					<iecDeclaration active="FALSE"/>
 				</group>
+				<group name="I_O_mappings_ProgInp">
+					<iecDeclaration active="FALSE"/>
+				</group>
 				<group name="Ungrouped_vars">
 					<iecDeclaration active="FALSE"/>
 				</group>
@@ -62,8 +71,20 @@ END_VAR
 			<functions/>
 			<functionBlocks/>
 			<programs>
-				<program name="main" version="1.0.0" creationDate="0" lastModifiedDate="1780984944" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">
-					<vars/>
+				<program name="main" version="1.0.0" creationDate="0" lastModifiedDate="1781072332" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">
+					<vars>
+						<localVars>
+							<var name="T_IN1" type="REAL"/>
+						</localVars>
+						<localConsts>
+							<const name="a" type="REAL">
+								<initValue>0.0039083</initValue>
+							</const>
+							<const name="b" type="REAL">
+								<initValue>-0.0000005775</initValue>
+							</const>
+						</localConsts>
+					</vars>
 					<iecDeclaration active="FALSE"/>
 					<sourceCode type="ST">
 						<![CDATA[
@@ -80,6 +101,10 @@ END_IF;
 m_watchdog_relay := watchdog_relay;
 
 
+// RTD temperature reading
+T_IN1 := (-(1.0 / 100.0) * (50.0 * a - 10*sqrt(b * io_temp1 + 25.0 * pow(a, 2.0) - 100.0 * b))) / b;
+// assign to modbus register variable
+m_io_temp_1 := T_IN1;
 ]]>
 					</sourceCode>
 				</program>
@@ -5753,6 +5778,8 @@ After function block execution, unless an error occurred, you can use a subset o
 	VAR_GLOBAL
 		{G:"Parameters"}
 	m_watchdog_relay AT %MW200.0 : BOOL;
+		{G:"Parameters"}
+	m_io_temp_1 AT %MW200.2 : REAL;
 	END_VAR
 ]]>
 			</src>
@@ -5760,8 +5787,8 @@ After function block execution, unless an error occurred, you can use a subset o
 				<![CDATA[(* Automatically generated, do not edit! *)
 
 VAR_GLOBAL CONSTANT
-$$ParDB : ARRAY[ 0..39 ] OF USINT; { HIDDEN:ON } { INIT:"chew_simulator.PLK+0" }
-$$ParDBLength  : DWORD := 1; { HIDDEN:ON }
+$$ParDB : ARRAY[ 0..79 ] OF USINT; { HIDDEN:ON } { INIT:"chew_simulator.PLK+0" }
+$$ParDBLength  : DWORD := 2; { HIDDEN:ON }
 END_VAR
 
 PROGRAM InitParDB WITH Init;
@@ -5774,9 +5801,9 @@ PROGRAM InitParDB
 		dummyCrc32: UDINT;
 	END_VAR
 
-	dummyCrc32 := 828848729;
+	dummyCrc32 := 2561630941;
 
-	warningsKiller := sysDBase_SetExtTable( TO_DWORD( ADR($$ParDB) ), $$ParDBLength, 200, TO_DWORD( ADR(%MW200.0) ), 1, 2, 201, 0, 0, 2, 828848729 );
+	warningsKiller := sysDBase_SetExtTable( TO_DWORD( ADR($$ParDB) ), $$ParDBLength, 200, TO_DWORD( ADR(%MW200.0) ), 4, 2, 201, 0, 0, 2, 2561630941 );
 
 END_PROGRAM
 
@@ -5850,7 +5877,7 @@ END_VAR
 	{ CODE:ST }
 
 	(* Expansion 0 programmable inputs configuration*)
-	warningsKiller := sysCfgProgCh_AnIOExp(0,0,3,0);
+	warningsKiller := sysCfgProgCh_AnIOExp(0,0,0,1.2);
 	warningsKiller := sysCfgProgCh_AnIOExp(0,1,3,0);
 	warningsKiller := sysCfgProgCh_AnIOExp(0,2,3,0);
 	warningsKiller := sysCfgProgCh_AnIOExp(0,3,3,0);
@@ -5870,13 +5897,14 @@ END_PROGRAM
 			</src>
 		</aux>
 		<workspace>
-			<root name="chew_simulator" nextID="173">
+			<root name="chew_simulator" nextID="217">
 				<Pou name="main" id="1"/>
 				<GlobalVars name="Global_vars" id="2"/>
 				<Pou name="WatchdogTask" id="5"/>
 				<GlobalVars name="I_O_mappings_RelayOut" id="24"/>
 				<Pou name="InitTask" id="28"/>
 				<GlobalVars name="Ungrouped_vars" id="99"/>
+				<GlobalVars name="I_O_mappings_ProgInp" id="183"/>
 			</root>
 		</workspace>
 	</sources>
@@ -5930,6 +5958,30 @@ END_PROGRAM
 								<shortname/>
 								<size>0</size>
 								<dataBlock>%MW200.0</dataBlock>
+								<subindex>0</subindex>
+							</param>
+							<param>
+								<ipa>16385</ipa>
+								<address>16385</address>
+								<name>m_io_temp_1</name>
+								<typepar>4</typepar>
+								<typetarg>REAL</typetarg>
+								<value>0</value>
+								<min/>
+								<max/>
+								<ipamin/>
+								<ipamax/>
+								<scale>1</scale>
+								<offs>0</offs>
+								<um/>
+								<description/>
+								<note/>
+								<form/>
+								<accesslevel>3</accesslevel>
+								<readonly>0</readonly>
+								<shortname/>
+								<size>0</size>
+								<dataBlock>%MW200.2</dataBlock>
 								<subindex>0</subindex>
 							</param>
 						</params>
@@ -6035,8 +6087,8 @@ void loop()
 						<A0602 template="IOExp\A0602\A0602.pct" version="1" uniqueID="1" caption="Arduino A0602 - Finder 8A.26_1" name="Arduino A0602 - Finder 8A.26">
 							<config>
 								<ioMappings_ProgInp resolution="14">
-									<ioMapping id="0" current="1.2" IOType="3">
-										<label/>
+									<ioMapping id="0" current="1.2" IOType="0">
+										<label>io_temp1</label>
 									</ioMapping>
 									<ioMapping id="1" current="1.2" IOType="3">
 										<label/>
