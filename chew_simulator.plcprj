@@ -51,6 +51,12 @@
 					<var name="P1_PULSE" type="UDINT">
 						<address type="Q" typeVar="B" index="10" subIndex="36"/>
 					</var>
+					<var name="P2_PERIOD" type="UDINT">
+						<address type="Q" typeVar="B" index="10" subIndex="40"/>
+					</var>
+					<var name="P2_PULSE" type="UDINT">
+						<address type="Q" typeVar="B" index="10" subIndex="44"/>
+					</var>
 				</group>
 			</globalVars>
 			<retainVars/>
@@ -82,7 +88,7 @@ END_VAR
 			<functions/>
 			<functionBlocks/>
 			<programs>
-				<program name="main" version="1.0.0" creationDate="0" lastModifiedDate="1781217649" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">
+				<program name="main" version="1.0.0" creationDate="0" lastModifiedDate="1781220764" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">
 					<vars>
 						<localVars>
 							<var name="T_IN1" type="REAL"/>
@@ -128,6 +134,7 @@ m_io_temp_1 := T_IN1;
 
 
 //=========== Pumps/PWM controls ===========
+//pump 1
 P1_PERIOD := PERIOD;  // 1000 us period = 1 kHz
 
 P1_PULSE := m_pwm_pulse_1;
@@ -140,6 +147,21 @@ END_IF;
 IF P1_PULSE >= 1000 then
     P1_PULSE := 999;
 END_IF;
+
+
+//pump 2
+P2_PERIOD := PERIOD;  // 1000 us period = 1 kHz
+
+P2_PULSE := m_pwm_pulse_2;
+
+IF P2_PULSE <= 0 then
+    P2_PULSE := 0;
+END_IF;
+    
+IF P2_PULSE >= 1000 then
+    P2_PULSE := 999;
+END_IF;
+
 
 
 
@@ -5820,6 +5842,8 @@ After function block execution, unless an error occurred, you can use a subset o
 	m_io_temp_1 AT %MW200.2 : REAL;
 		{G:"Variables"}
 	m_pwm_pulse_1 AT %MW201.0 : INT;
+		{G:"Variables"}
+	m_pwm_pulse_2 AT %MW201.1 : INT;
 	END_VAR
 ]]>
 			</src>
@@ -5827,8 +5851,8 @@ After function block execution, unless an error occurred, you can use a subset o
 				<![CDATA[(* Automatically generated, do not edit! *)
 
 VAR_GLOBAL CONSTANT
-$$ParDB : ARRAY[ 0..119 ] OF USINT; { HIDDEN:ON } { INIT:"chew_simulator.PLK+0" }
-$$ParDBLength  : DWORD := 3; { HIDDEN:ON }
+$$ParDB : ARRAY[ 0..159 ] OF USINT; { HIDDEN:ON } { INIT:"chew_simulator.PLK+0" }
+$$ParDBLength  : DWORD := 4; { HIDDEN:ON }
 END_VAR
 
 PROGRAM InitParDB WITH Init;
@@ -5841,9 +5865,9 @@ PROGRAM InitParDB
 		dummyCrc32: UDINT;
 	END_VAR
 
-	dummyCrc32 := 1429717252;
+	dummyCrc32 := 1393513166;
 
-	warningsKiller := sysDBase_SetExtTable( TO_DWORD( ADR($$ParDB) ), $$ParDBLength, 200, TO_DWORD( ADR(%MW200.0) ), 4, 2, 201, TO_DWORD( ADR(%MW201.0) ), 1, 2, 1429717252 );
+	warningsKiller := sysDBase_SetExtTable( TO_DWORD( ADR($$ParDB) ), $$ParDBLength, 200, TO_DWORD( ADR(%MW200.0) ), 4, 2, 201, TO_DWORD( ADR(%MW201.0) ), 2, 2, 1393513166 );
 
 END_PROGRAM
 
@@ -5937,7 +5961,7 @@ END_PROGRAM
 			</src>
 		</aux>
 		<workspace>
-			<root name="chew_simulator" nextID="248">
+			<root name="chew_simulator" nextID="265">
 				<Pou name="main" id="1"/>
 				<GlobalVars name="Global_vars" id="2"/>
 				<Pou name="WatchdogTask" id="5"/>
@@ -6049,6 +6073,30 @@ END_PROGRAM
 								<shortname/>
 								<size>0</size>
 								<dataBlock>%MW201.0</dataBlock>
+								<subindex>0</subindex>
+							</param>
+							<param>
+								<ipa>24577</ipa>
+								<address>24577</address>
+								<name>m_pwm_pulse_2</name>
+								<typepar>0</typepar>
+								<typetarg>INT</typetarg>
+								<value/>
+								<min/>
+								<max/>
+								<ipamin/>
+								<ipamax/>
+								<scale>1</scale>
+								<offs>0</offs>
+								<um/>
+								<description/>
+								<note/>
+								<form/>
+								<accesslevel>3</accesslevel>
+								<readonly>0</readonly>
+								<shortname/>
+								<size>0</size>
+								<dataBlock>%MW201.1</dataBlock>
 								<subindex>0</subindex>
 							</param>
 						</paramsRO>
@@ -6186,10 +6234,10 @@ void loop()
 										<label>P1_PULSE</label>
 									</ioMapping>
 									<ioMapping id="2">
-										<label/>
+										<label>P2_PERIOD</label>
 									</ioMapping>
 									<ioMapping id="3">
-										<label/>
+										<label>P2_PULSE</label>
 									</ioMapping>
 									<ioMapping id="4">
 										<label/>
