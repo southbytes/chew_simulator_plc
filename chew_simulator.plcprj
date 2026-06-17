@@ -52,6 +52,10 @@
 					<var name="io_temp4" type="REAL">
 						<address type="I" typeVar="B" index="10" subIndex="12"/>
 					</var>
+					<var name="IN6_RAW" type="UINT"/>
+					<var name="io6_pressure" type="UINT">
+						<address type="I" typeVar="B" index="10" subIndex="24"/>
+					</var>
 				</group>
 				<group name="I_O_mappings_PWMOut" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="" version="1.0.0">
 					<var name="P1_PERIOD" type="UDINT">
@@ -97,13 +101,24 @@ END_VAR
 			<functions/>
 			<functionBlocks/>
 			<programs>
-				<program name="main" version="1.0.0" creationDate="0" lastModifiedDate="1781228538" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">
+				<program name="main" version="1.0.0" creationDate="0" lastModifiedDate="1781670125" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">
 					<vars>
 						<localVars>
 							<var name="T_IN1" type="REAL"/>
 							<var name="T_IN2" type="REAL"/>
 							<var name="T_IN3" type="REAL"/>
 							<var name="T_IN4" type="REAL"/>
+							<var name="rInputBits" type="REAL"/>
+							<var name="rCurrent_mA" type="REAL"/>
+							<var name="rPressure_mbar" type="REAL">
+								<descr>0.0 to 50.0 mbar</descr>
+							</var>
+							<var name="rWaterDepth_cm" type="REAL">
+								<descr>0.0 to 51.0 cm</descr>
+							</var>
+							<var name="bSensorFault" type="BOOL">
+								<descr>High if wire is broken or shorted</descr>
+							</var>
 						</localVars>
 						<localConsts>
 							<const name="a" type="REAL">
@@ -115,6 +130,9 @@ END_VAR
 							<const name="PERIOD" type="INT">
 								<initValue>1000</initValue>
 							</const>
+							<const name="PRESSURE_CAL" type="REAL">
+								<initValue>0.25</initValue>
+							</const>
 						</localConsts>
 					</vars>
 					<iecDeclaration active="TRUE" valid="TRUE">
@@ -124,24 +142,32 @@ VAR CONSTANT
 	a : REAL := 0.0039083;
 	b : REAL := -0.0000005775;
 	PERIOD : INT := 1000;
+	PRESSURE_CAL : REAL := 0.25;
 END_VAR
 
 VAR
 	T_IN1 : REAL;
 	T_IN2 : REAL;
 	T_IN3 : REAL;
-	T_IN4 : REAL;	
+	T_IN4 : REAL;
+	rInputBits : REAL;
+	rCurrent_mA : REAL;
+	rPressure_mbar : REAL;	(* 0.0 to 50.0 mbar *)
+	rWaterDepth_cm : REAL;	(* 0.0 to 51.0 cm *)
+	bSensorFault : BOOL;	(* High if wire is broken or shorted *)
 END_VAR
 
 ]]>
 					</iecDeclaration>
 					<sourceCode type="ST">
 						<![CDATA[
+
+// =========== Watchdog implementation ===========
 (* Increment cnt every 1000ms using system timer *)
 IF (sysTimer - last_ms) >= 1000 THEN
     cnt := cnt + 1;
     IF cnt >= 65535 THEN
-    	cnt := 0;
+        cnt := 0;
     END_IF;
     last_ms := sysTimer;
 END_IF;
@@ -150,67 +176,123 @@ END_IF;
 m_watchdog_relay := watchdog_relay;
 
 
-//=========== RTD temperature readings ===========
+
+
+
+
+
+// =========== RTD temperature readings ===========
 // Channel I1 3 wire
-T_IN1 := (-(1.0 / 100.0) * (50.0 * a - 10*sqrt(b * io_temp1 + 25.0 * pow(a, 2.0) - 100.0 * b))) / b;
+T_IN1 := ( - (1.0 / 100.0) * (50.0 * a - 10 * SQRT(b * io_temp1 + 25.0 * pow(a, 2.0) - 100.0 * b))) / b;
 // assign to modbus register variable
 m_io_temp_1 := T_IN1;
 
 // Channel I2 3 wire
-T_IN2 := (-(1.0 / 100.0) * (50.0 * a - 10*sqrt(b * io_temp2 + 25.0 * pow(a, 2.0) - 100.0 * b))) / b;
+T_IN2 := ( - (1.0 / 100.0) * (50.0 * a - 10 * SQRT(b * io_temp2 + 25.0 * pow(a, 2.0) - 100.0 * b))) / b;
 // assign to modbus register variable
 m_io_temp_2 := T_IN2;
 
 
 // Channel I3 2 wire
-T_IN3 := (-(1.0 / 100.0) * (50.0 * a - 10*sqrt(b * io_temp3 + 25.0 * pow(a, 2.0) - 100.0 * b))) / b;
+T_IN3 := ( - (1.0 / 100.0) * (50.0 * a - 10 * SQRT(b * io_temp3 + 25.0 * pow(a, 2.0) - 100.0 * b))) / b;
 // assign to modbus register variable
 m_io_temp_3 := T_IN3;
 
 // Channel I4 2 wire
-T_IN4 := (-(1.0 / 100.0) * (50.0 * a - 10*sqrt(b * io_temp4 + 25.0 * pow(a, 2.0) - 100.0 * b))) / b;
+T_IN4 := ( - (1.0 / 100.0) * (50.0 * a - 10 * SQRT(b * io_temp4 + 25.0 * pow(a, 2.0) - 100.0 * b))) / b;
 // assign to modbus register variable
 m_io_temp_4 := T_IN4;
 
 
 
 
-//=========== Pumps/PWM controls ===========
-//pump 1
-P1_PERIOD := PERIOD;  // 1000 us period = 1 kHz
+
+
+
+// ============== Presure sensor ============
+// 1. Convert the raw 16-bit unsigned integer to a REAL float for math processing
+rInputBits := TO_REAL(io6_pressure);
+
+// 2. Convert raw bits into actual mA loop current (0 to 25mA scale over 65535 bits)
+rCurrent_mA := (rInputBits * 25.0) / 65535.0;
+
+// 3. Linear scaling formula targeting the sensor's physical 4-20mA range
+// Formula: Out = ((In - InMin) * (OutMax - OutMin) / (InMax - InMin)) + OutMin
+IF rCurrent_mA >= 4.0 THEN
+    rPressure_mbar := ((rCurrent_mA - 4.0) * (50.0 - 0.0) / (20.0 - 4.0)) + 0.0;
+    rWaterDepth_cm := ((rCurrent_mA - 4.0) * (51.0 - 0.0) / (20.0 - 4.0)) + 0.0;
+ELSE
+    rPressure_mbar := 0.0;
+    rWaterDepth_cm := 0.0;
+END_IF;
+
+// 4. Wire Break and Fault Detection
+// If current drops below 3.6mA (broken wire) or spikes above 21.0mA (shorted loop)
+IF (rCurrent_mA < 3.6) OR (rCurrent_mA > 21.0) THEN
+    bSensorFault := TRUE;
+    rPressure_mbar := 0.0; // Fail-safe fallback values
+    rWaterDepth_cm := 0.0;
+ELSE
+    bSensorFault := FALSE;
+END_IF;
+
+//calibaration for the water hight
+IF rWaterDepth_cm > PRESSURE_CAL THEN
+    rWaterDepth_cm := rWaterDepth_cm - PRESSURE_CAL;
+ELSE
+    rWaterDepth_cm := 0.0; // Clamps the depth to zero
+END_IF;
+
+// pass water depth value to modbus client
+m_io6_water_depth := rWaterDepth_cm;
+
+
+
+
+
+
+// =========== Pumps/PWM controls ===========
+// pump 1
+P1_PERIOD := PERIOD; // 1000 us period = 1 kHz
 
 P1_PULSE := m_pwm_pulse_1;
 
 
-IF P1_PULSE <= 0 then
+IF P1_PULSE <= 0 THEN
     P1_PULSE := 0;
 END_IF;
-    
-IF P1_PULSE >= 1000 then
+
+IF P1_PULSE >= 1000 THEN
     P1_PULSE := 999;
 END_IF;
 
 
-//pump 2
-P2_PERIOD := PERIOD;  // 1000 us period = 1 kHz
+// pump 2
+P2_PERIOD := PERIOD; // 1000 us period = 1 kHz
 
 P2_PULSE := m_pwm_pulse_2;
 
-IF P2_PULSE <= 0 then
+IF P2_PULSE <= 0 THEN
     P2_PULSE := 0;
 END_IF;
-    
-IF P2_PULSE >= 1000 then
+
+IF P2_PULSE >= 1000 THEN
     P2_PULSE := 999;
 END_IF;
 
 
 
 
+
+
+
+
+// =========== Solenoid Valves controls ===========
+
 ]]>
 					</sourceCode>
 				</program>
-				<program name="WatchdogTask" version="1.0.0" creationDate="1780553486" lastModifiedDate="1781052616" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">
+				<program name="WatchdogTask" version="1.0.0" creationDate="1780553486" lastModifiedDate="1781564674" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">
 					<vars>
 						<localVars>
 							<var name="WatchdogTask" type="DINT"/>
@@ -238,7 +320,9 @@ END_IF;
    system safe-state halt if execution stalls for greater than 5000ms.
    ========================================================================== *)
    
-   
+
+
+//TODO   
 //CounterInput := cnt;
 
 // Check if the counter has changed since the last scan
@@ -5888,6 +5972,8 @@ After function block execution, unless an error occurred, you can use a subset o
 	m_io_temp_3 AT %MW200.6 : REAL;
 		{G:"Parameters"}
 	m_io_temp_4 AT %MW200.8 : REAL;
+		{G:"Parameters"}
+	m_io6_water_depth AT %MW200.10 : REAL;
 		{G:"Variables"}
 	m_pwm_pulse_1 AT %MW201.0 : INT;
 		{G:"Variables"}
@@ -5899,8 +5985,8 @@ After function block execution, unless an error occurred, you can use a subset o
 				<![CDATA[(* Automatically generated, do not edit! *)
 
 VAR_GLOBAL CONSTANT
-$$ParDB : ARRAY[ 0..279 ] OF USINT; { HIDDEN:ON } { INIT:"chew_simulator.PLK+0" }
-$$ParDBLength  : DWORD := 7; { HIDDEN:ON }
+$$ParDB : ARRAY[ 0..319 ] OF USINT; { HIDDEN:ON } { INIT:"chew_simulator.PLK+0" }
+$$ParDBLength  : DWORD := 8; { HIDDEN:ON }
 END_VAR
 
 PROGRAM InitParDB WITH Init;
@@ -5913,9 +5999,9 @@ PROGRAM InitParDB
 		dummyCrc32: UDINT;
 	END_VAR
 
-	dummyCrc32 := 1772305115;
+	dummyCrc32 := 1717143624;
 
-	warningsKiller := sysDBase_SetExtTable( TO_DWORD( ADR($$ParDB) ), $$ParDBLength, 200, TO_DWORD( ADR(%MW200.0) ), 10, 2, 201, TO_DWORD( ADR(%MW201.0) ), 2, 2, 1772305115 );
+	warningsKiller := sysDBase_SetExtTable( TO_DWORD( ADR($$ParDB) ), $$ParDBLength, 200, TO_DWORD( ADR(%MW200.0) ), 12, 2, 201, TO_DWORD( ADR(%MW201.0) ), 2, 2, 1717143624 );
 
 END_PROGRAM
 
@@ -5995,7 +6081,7 @@ END_VAR
 	warningsKiller := sysCfgProgCh_AnIOExp(0,3,1,0);
 	warningsKiller := sysCfgProgCh_AnIOExp(0,4,6,0);
 	warningsKiller := sysCfgProgCh_AnIOExp(0,5,3,0);
-	warningsKiller := sysCfgProgCh_AnIOExp(0,6,3,0);
+	warningsKiller := sysCfgProgCh_AnIOExp(0,6,2,0);
 	warningsKiller := sysCfgProgCh_AnIOExp(0,7,6,0);
 
 	(* Global configuration *)
@@ -6009,7 +6095,7 @@ END_PROGRAM
 			</src>
 		</aux>
 		<workspace>
-			<root name="chew_simulator" nextID="318">
+			<root name="chew_simulator" nextID="421">
 				<Pou name="main" id="1"/>
 				<GlobalVars name="Global_vars" id="2"/>
 				<Pou name="WatchdogTask" id="5"/>
@@ -6167,6 +6253,30 @@ END_PROGRAM
 								<shortname/>
 								<size>0</size>
 								<dataBlock>%MW200.8</dataBlock>
+								<subindex>0</subindex>
+							</param>
+							<param>
+								<ipa>16393</ipa>
+								<address>16393</address>
+								<name>m_io6_water_depth</name>
+								<typepar>4</typepar>
+								<typetarg>REAL</typetarg>
+								<value>0</value>
+								<min/>
+								<max/>
+								<ipamin/>
+								<ipamax/>
+								<scale>1</scale>
+								<offs>0</offs>
+								<um/>
+								<description/>
+								<note/>
+								<form/>
+								<accesslevel>3</accesslevel>
+								<readonly>0</readonly>
+								<shortname/>
+								<size>0</size>
+								<dataBlock>%MW200.10</dataBlock>
 								<subindex>0</subindex>
 							</param>
 						</params>
@@ -6339,8 +6449,8 @@ void loop()
 									<ioMapping id="5" current="0" IOType="3">
 										<label/>
 									</ioMapping>
-									<ioMapping id="6" current="0" IOType="3">
-										<label/>
+									<ioMapping id="6" current="0" IOType="2">
+										<label>io6_pressure</label>
 									</ioMapping>
 									<ioMapping id="7" current="0" IOType="6">
 										<label/>
