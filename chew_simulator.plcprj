@@ -40,16 +40,16 @@
 				</group>
 				<group name="I_O_mappings_ProgInp" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="" version="1.0.0">
 					<var name="temp1" type="REAL"/>
-					<var name="io_temp1" type="REAL">
+					<var name="io1_temp" type="REAL">
 						<address type="I" typeVar="B" index="10" subIndex="0"/>
 					</var>
-					<var name="io_temp2" type="REAL">
+					<var name="io2_temp" type="REAL">
 						<address type="I" typeVar="B" index="10" subIndex="4"/>
 					</var>
-					<var name="io_temp3" type="REAL">
+					<var name="io3_temp" type="REAL">
 						<address type="I" typeVar="B" index="10" subIndex="8"/>
 					</var>
-					<var name="io_temp4" type="REAL">
+					<var name="io4_temp" type="REAL">
 						<address type="I" typeVar="B" index="10" subIndex="12"/>
 					</var>
 					<var name="IN6_RAW" type="UINT"/>
@@ -61,13 +61,13 @@
 					<var name="P1_PERIOD" type="UDINT">
 						<address type="Q" typeVar="B" index="10" subIndex="32"/>
 					</var>
-					<var name="P1_PULSE" type="UDINT">
+					<var name="p1_pulse" type="UDINT">
 						<address type="Q" typeVar="B" index="10" subIndex="36"/>
 					</var>
 					<var name="P2_PERIOD" type="UDINT">
 						<address type="Q" typeVar="B" index="10" subIndex="40"/>
 					</var>
-					<var name="P2_PULSE" type="UDINT">
+					<var name="p2_pulse" type="UDINT">
 						<address type="Q" typeVar="B" index="10" subIndex="44"/>
 					</var>
 				</group>
@@ -104,10 +104,10 @@ END_VAR
 				<program name="main" version="1.0.0" creationDate="0" lastModifiedDate="1781670125" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">
 					<vars>
 						<localVars>
-							<var name="T_IN1" type="REAL"/>
-							<var name="T_IN2" type="REAL"/>
-							<var name="T_IN3" type="REAL"/>
-							<var name="T_IN4" type="REAL"/>
+							<var name="t_in1" type="REAL"/>
+							<var name="t_in2" type="REAL"/>
+							<var name="t_in3" type="REAL"/>
+							<var name="t_in4" type="REAL"/>
 							<var name="rInputBits" type="REAL"/>
 							<var name="rCurrent_mA" type="REAL"/>
 							<var name="rPressure_mbar" type="REAL">
@@ -121,16 +121,17 @@ END_VAR
 							</var>
 						</localVars>
 						<localConsts>
-							<const name="a" type="REAL">
+							<const name="A" type="REAL">
 								<initValue>0.0039083</initValue>
 							</const>
-							<const name="b" type="REAL">
+							<const name="B" type="REAL">
 								<initValue>-0.0000005775</initValue>
 							</const>
 							<const name="PERIOD" type="INT">
 								<initValue>1000</initValue>
 							</const>
 							<const name="PRESSURE_CAL" type="REAL">
+								<descr>constant to compensate the pressure reading</descr>
 								<initValue>0.25</initValue>
 							</const>
 						</localConsts>
@@ -139,17 +140,17 @@ END_VAR
 						<![CDATA[PROGRAM main
 
 VAR CONSTANT
-	a : REAL := 0.0039083;
-	b : REAL := -0.0000005775;
+	A : REAL := 0.0039083;
+	B : REAL := -0.0000005775;
 	PERIOD : INT := 1000;
-	PRESSURE_CAL : REAL := 0.25;
+	PRESSURE_CAL : REAL := 0.25; // constant to compensate the pressure reading
 END_VAR
 
 VAR
-	T_IN1 : REAL;
-	T_IN2 : REAL;
-	T_IN3 : REAL;
-	T_IN4 : REAL;
+	t_in1 : REAL;
+	t_in2 : REAL;
+	t_in3 : REAL;
+	t_in4 : REAL;
 	rInputBits : REAL;
 	rCurrent_mA : REAL;
 	rPressure_mbar : REAL;	(* 0.0 to 50.0 mbar *)
@@ -183,25 +184,25 @@ m_watchdog_relay := watchdog_relay;
 
 // =========== RTD temperature readings ===========
 // Channel I1 3 wire
-T_IN1 := ( - (1.0 / 100.0) * (50.0 * a - 10 * SQRT(b * io_temp1 + 25.0 * pow(a, 2.0) - 100.0 * b))) / b;
+t_in1 := ( - (1.0 / 100.0) * (50.0 * A - 10 * SQRT(B * io1_temp + 25.0 * pow(A, 2.0) - 100.0 * B))) / B;
 // assign to modbus register variable
-m_io_temp_1 := T_IN1;
+m_io_temp_1 := t_in1;
 
 // Channel I2 3 wire
-T_IN2 := ( - (1.0 / 100.0) * (50.0 * a - 10 * SQRT(b * io_temp2 + 25.0 * pow(a, 2.0) - 100.0 * b))) / b;
+t_in2 := ( - (1.0 / 100.0) * (50.0 * A - 10 * SQRT(B * io2_temp + 25.0 * pow(A, 2.0) - 100.0 * B))) / B;
 // assign to modbus register variable
-m_io_temp_2 := T_IN2;
+m_io_temp_2 := t_in2;
 
 
 // Channel I3 2 wire
-T_IN3 := ( - (1.0 / 100.0) * (50.0 * a - 10 * SQRT(b * io_temp3 + 25.0 * pow(a, 2.0) - 100.0 * b))) / b;
+t_in3 := ( - (1.0 / 100.0) * (50.0 * A - 10 * SQRT(B * io3_temp + 25.0 * pow(A, 2.0) - 100.0 * B))) / B;
 // assign to modbus register variable
-m_io_temp_3 := T_IN3;
+m_io_temp_3 := t_in3;
 
 // Channel I4 2 wire
-T_IN4 := ( - (1.0 / 100.0) * (50.0 * a - 10 * SQRT(b * io_temp4 + 25.0 * pow(a, 2.0) - 100.0 * b))) / b;
+t_in4 := ( - (1.0 / 100.0) * (50.0 * A - 10 * SQRT(B * io4_temp + 25.0 * pow(A, 2.0) - 100.0 * B))) / B;
 // assign to modbus register variable
-m_io_temp_4 := T_IN4;
+m_io_temp_4 := t_in4;
 
 
 
@@ -255,29 +256,29 @@ m_io6_water_depth := rWaterDepth_cm;
 // pump 1
 P1_PERIOD := PERIOD; // 1000 us period = 1 kHz
 
-P1_PULSE := m_pwm_pulse_1;
+p1_pulse := m_pwm_pulse_1;
 
 
-IF P1_PULSE <= 0 THEN
-    P1_PULSE := 0;
+IF p1_pulse <= 0 THEN
+    p1_pulse := 0;
 END_IF;
 
-IF P1_PULSE >= 1000 THEN
-    P1_PULSE := 999;
+IF p1_pulse >= 1000 THEN
+    p1_pulse := 999;
 END_IF;
 
 
 // pump 2
 P2_PERIOD := PERIOD; // 1000 us period = 1 kHz
 
-P2_PULSE := m_pwm_pulse_2;
+p2_pulse := m_pwm_pulse_2;
 
-IF P2_PULSE <= 0 THEN
-    P2_PULSE := 0;
+IF p2_pulse <= 0 THEN
+    p2_pulse := 0;
 END_IF;
 
-IF P2_PULSE >= 1000 THEN
-    P2_PULSE := 999;
+IF p2_pulse >= 1000 THEN
+    p2_pulse := 999;
 END_IF;
 
 
@@ -6095,7 +6096,7 @@ END_PROGRAM
 			</src>
 		</aux>
 		<workspace>
-			<root name="chew_simulator" nextID="421">
+			<root name="chew_simulator" nextID="451">
 				<Pou name="main" id="1"/>
 				<GlobalVars name="Global_vars" id="2"/>
 				<Pou name="WatchdogTask" id="5"/>
@@ -6432,16 +6433,16 @@ void loop()
 							<config>
 								<ioMappings_ProgInp resolution="14">
 									<ioMapping id="0" current="1.2" IOType="0">
-										<label>io_temp1</label>
+										<label>io1_temp</label>
 									</ioMapping>
 									<ioMapping id="1" current="1.2" IOType="0">
-										<label>io_temp2</label>
+										<label>io2_temp</label>
 									</ioMapping>
 									<ioMapping id="2" current="0" IOType="1">
-										<label>io_temp3</label>
+										<label>io3_temp</label>
 									</ioMapping>
 									<ioMapping id="3" current="0" IOType="1">
-										<label>io_temp4</label>
+										<label>io4_temp</label>
 									</ioMapping>
 									<ioMapping id="4" current="0" IOType="6">
 										<label/>
@@ -6461,13 +6462,13 @@ void loop()
 										<label>P1_PERIOD</label>
 									</ioMapping>
 									<ioMapping id="1">
-										<label>P1_PULSE</label>
+										<label>p1_pulse</label>
 									</ioMapping>
 									<ioMapping id="2">
 										<label>P2_PERIOD</label>
 									</ioMapping>
 									<ioMapping id="3">
-										<label>P2_PULSE</label>
+										<label>p2_pulse</label>
 									</ioMapping>
 									<ioMapping id="4">
 										<label/>
