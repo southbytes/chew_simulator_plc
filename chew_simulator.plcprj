@@ -32,14 +32,28 @@
 				<group name="Global_vars" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="" version="1.0.0">
 					<var name="last_ms" type="UDINT"/>
 					<var name="cnt" type="UINT"/>
+					<var name="di_Trigger_Count" type="UINT">
+						<descr>(Stores the accumulated hit total)</descr>
+					</var>
 				</group>
 				<group name="I_O_mappings_RelayOut" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="" version="1.0.0">
 					<var name="watchdog_relay" type="BOOL">
 						<address type="Q" typeVar="X" index="0" subIndex="0"/>
 					</var>
+					<var name="o1_valve" type="BOOL">
+						<address type="Q" typeVar="B" index="11" subIndex="0"/>
+					</var>
+					<var name="o2_valve" type="BOOL">
+						<address type="Q" typeVar="B" index="11" subIndex="1"/>
+					</var>
+					<var name="o3_valve" type="BOOL">
+						<address type="Q" typeVar="B" index="11" subIndex="2"/>
+					</var>
+					<var name="o4_valve" type="BOOL">
+						<address type="Q" typeVar="B" index="11" subIndex="3"/>
+					</var>
 				</group>
 				<group name="I_O_mappings_ProgInp" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="" version="1.0.0">
-					<var name="temp1" type="REAL"/>
 					<var name="io1_temp" type="REAL">
 						<address type="I" typeVar="B" index="10" subIndex="0"/>
 					</var>
@@ -52,9 +66,11 @@
 					<var name="io4_temp" type="REAL">
 						<address type="I" typeVar="B" index="10" subIndex="12"/>
 					</var>
-					<var name="IN6_RAW" type="UINT"/>
 					<var name="io6_pressure" type="UINT">
 						<address type="I" typeVar="B" index="10" subIndex="24"/>
+					</var>
+					<var name="di_Sensor" type="BOOL">
+						<address type="I" typeVar="W" index="0" subIndex="4"/>
 					</var>
 				</group>
 				<group name="I_O_mappings_PWMOut" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="" version="1.0.0">
@@ -80,6 +96,7 @@
 						<![CDATA[VAR_GLOBAL
 	last_ms : UDINT;
 	cnt : UINT;
+	di_Trigger_Count : UINT; //(Stores the accumulated hit total)
 END_VAR
 
 ]]>
@@ -101,7 +118,7 @@ END_VAR
 			<functions/>
 			<functionBlocks/>
 			<programs>
-				<program name="main" version="1.0.0" creationDate="0" lastModifiedDate="1781670125" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">
+				<program name="main" version="1.0.0" creationDate="0" lastModifiedDate="1782278394" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">
 					<vars>
 						<localVars>
 							<var name="t_in1" type="REAL"/>
@@ -118,6 +135,9 @@ END_VAR
 							</var>
 							<var name="bSensorFault" type="BOOL">
 								<descr>High if wire is broken or shorted</descr>
+							</var>
+							<var name="di_Sensor_Last" type="BOOL">
+								<descr>(Retains the previous state for comparison)</descr>
 							</var>
 						</localVars>
 						<localConsts>
@@ -143,7 +163,7 @@ VAR CONSTANT
 	A : REAL := 0.0039083;
 	B : REAL := -0.0000005775;
 	PERIOD : INT := 1000;
-	PRESSURE_CAL : REAL := 0.25; // constant to compensate the pressure reading
+	PRESSURE_CAL : REAL := 0.25;	(* constant to compensate the pressure reading *)
 END_VAR
 
 VAR
@@ -156,12 +176,22 @@ VAR
 	rPressure_mbar : REAL;	(* 0.0 to 50.0 mbar *)
 	rWaterDepth_cm : REAL;	(* 0.0 to 51.0 cm *)
 	bSensorFault : BOOL;	(* High if wire is broken or shorted *)
+	di_Sensor_Last : BOOL;	(* (Retains the previous state for comparison) *)
 END_VAR
 
 ]]>
 					</iecDeclaration>
 					<sourceCode type="ST">
-						<![CDATA[
+						<![CDATA[(* ==========================================================================
+   PROJECT NAME:  Chewing Simulator: main
+   AUTHOR:        Xiang Kang Li
+   AFFILIATION:   University of Queensland
+   DATE:          June 18, 2026
+   REVISION:      V1.0.0
+   
+   DESCRIPTION:
+   Main control block to coordinate the controls
+   ========================================================================== *)
 
 // =========== Watchdog implementation ===========
 (* Increment cnt every 1000ms using system timer *)
@@ -285,15 +315,35 @@ END_IF;
 
 
 
+// ================= Hit count ==================
+(* Detect the exact moment the input switches from OFF to ON *)
+IF di_Sensor AND NOT di_Sensor_Last THEN
+    di_Trigger_Count := di_Trigger_Count + 1; (* Increment counter *)
+END_IF;
+
+(* Keep tracking the historical state for the next execution loop *)
+di_Sensor_Last := di_Sensor;
+
+
+//pass to Modubs register
+m_trigger_count := di_Trigger_Count;
+
+
+
+
+
 
 
 
 // =========== Solenoid Valves controls ===========
-
+o1_valve := m_o1_valve;
+o2_valve := m_o2_valve;
+o3_valve := m_o3_valve;
+o4_valve := m_o4_valve;
 ]]>
 					</sourceCode>
 				</program>
-				<program name="WatchdogTask" version="1.0.0" creationDate="1780553486" lastModifiedDate="1781564674" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">
+				<program name="WatchdogTask" version="1.0.0" creationDate="1780553486" lastModifiedDate="1781821607" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">
 					<vars>
 						<localVars>
 							<var name="WatchdogTask" type="DINT"/>
@@ -310,7 +360,7 @@ END_IF;
 					<iecDeclaration active="FALSE"/>
 					<sourceCode type="ST">
 						<![CDATA[(* ==========================================================================
-   PROJECT NAME:  Industrial Watchdog System
+   PROJECT NAME:  Chewing Simulator: Watchdog
    AUTHOR:        Xiang Kang Li
    AFFILIATION:   University of Queensland
    DATE:          May 22, 2026
@@ -368,7 +418,7 @@ END_IF;
 ]]>
 					</sourceCode>
 				</program>
-				<program name="InitTask" version="1.0.0" creationDate="1780970073" lastModifiedDate="1780977465" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">
+				<program name="InitTask" version="1.0.0" creationDate="1780970073" lastModifiedDate="1781762775" excludeFromBuild="FALSE" excludeFromBuildIfNotDef="">
 					<vars/>
 					<iecDeclaration active="FALSE"/>
 					<sourceCode type="ST">
@@ -376,6 +426,9 @@ END_IF;
 
 // make the watchdog relay to true
 watchdog_relay := true;
+
+// set count to 0
+di_Trigger_Count := 0;
 ]]>
 					</sourceCode>
 				</program>
@@ -5975,10 +6028,20 @@ After function block execution, unless an error occurred, you can use a subset o
 	m_io_temp_4 AT %MW200.8 : REAL;
 		{G:"Parameters"}
 	m_io6_water_depth AT %MW200.10 : REAL;
+		{G:"Parameters"}
+	m_trigger_count AT %MW200.12 : UINT;
 		{G:"Variables"}
 	m_pwm_pulse_1 AT %MW201.0 : INT;
 		{G:"Variables"}
 	m_pwm_pulse_2 AT %MW201.1 : INT;
+		{G:"Variables"}
+	m_o1_valve AT %MW201.2 : BOOL := 0;
+		{G:"Variables"}
+	m_o2_valve AT %MW201.3 : BOOL := 0;
+		{G:"Variables"}
+	m_o3_valve AT %MW201.4 : BOOL := 0;
+		{G:"Variables"}
+	m_o4_valve AT %MW201.5 : BOOL := 0;
 	END_VAR
 ]]>
 			</src>
@@ -5986,8 +6049,8 @@ After function block execution, unless an error occurred, you can use a subset o
 				<![CDATA[(* Automatically generated, do not edit! *)
 
 VAR_GLOBAL CONSTANT
-$$ParDB : ARRAY[ 0..319 ] OF USINT; { HIDDEN:ON } { INIT:"chew_simulator.PLK+0" }
-$$ParDBLength  : DWORD := 8; { HIDDEN:ON }
+$$ParDB : ARRAY[ 0..519 ] OF USINT; { HIDDEN:ON } { INIT:"chew_simulator.PLK+0" }
+$$ParDBLength  : DWORD := 13; { HIDDEN:ON }
 END_VAR
 
 PROGRAM InitParDB WITH Init;
@@ -6000,9 +6063,9 @@ PROGRAM InitParDB
 		dummyCrc32: UDINT;
 	END_VAR
 
-	dummyCrc32 := 1717143624;
+	dummyCrc32 := 488910472;
 
-	warningsKiller := sysDBase_SetExtTable( TO_DWORD( ADR($$ParDB) ), $$ParDBLength, 200, TO_DWORD( ADR(%MW200.0) ), 12, 2, 201, TO_DWORD( ADR(%MW201.0) ), 2, 2, 1717143624 );
+	warningsKiller := sysDBase_SetExtTable( TO_DWORD( ADR($$ParDB) ), $$ParDBLength, 200, TO_DWORD( ADR(%MW200.0) ), 13, 2, 201, TO_DWORD( ADR(%MW201.0) ), 6, 2, 488910472 );
 
 END_PROGRAM
 
@@ -6064,7 +6127,7 @@ END_PROGRAM
 				<![CDATA[(* Automatically generated, do not edit! *)
 
 VAR_GLOBAL CONSTANT
-	$$IOExpConfigList : ARRAY[ 0..1 ] OF UINT := [4, 0]; { HIDDEN:ON }
+	$$IOExpConfigList : ARRAY[ 0..2 ] OF UINT := [4,3, 0]; { HIDDEN:ON }
 END_VAR
 PROGRAM $$IOExpConfig WITH Init;
 
@@ -6085,8 +6148,26 @@ END_VAR
 	warningsKiller := sysCfgProgCh_AnIOExp(0,6,2,0);
 	warningsKiller := sysCfgProgCh_AnIOExp(0,7,6,0);
 
+	(* Expansion 1 programmable inputs configuration*)
+	warningsKiller := sysCfgProgInput_DigIOExp(1,0,0);
+	warningsKiller := sysCfgProgInput_DigIOExp(1,1,0);
+	warningsKiller := sysCfgProgInput_DigIOExp(1,2,0);
+	warningsKiller := sysCfgProgInput_DigIOExp(1,3,0);
+	warningsKiller := sysCfgProgInput_DigIOExp(1,4,0);
+	warningsKiller := sysCfgProgInput_DigIOExp(1,5,0);
+	warningsKiller := sysCfgProgInput_DigIOExp(1,6,0);
+	warningsKiller := sysCfgProgInput_DigIOExp(1,7,0);
+	warningsKiller := sysCfgProgInput_DigIOExp(1,8,0);
+	warningsKiller := sysCfgProgInput_DigIOExp(1,9,0);
+	warningsKiller := sysCfgProgInput_DigIOExp(1,10,0);
+	warningsKiller := sysCfgProgInput_DigIOExp(1,11,0);
+	warningsKiller := sysCfgProgInput_DigIOExp(1,12,0);
+	warningsKiller := sysCfgProgInput_DigIOExp(1,13,0);
+	warningsKiller := sysCfgProgInput_DigIOExp(1,14,0);
+	warningsKiller := sysCfgProgInput_DigIOExp(1,15,0);
+
 	(* Global configuration *)
-	warningsKiller := sysSetConfiguredIOExp(1,ADR($$IOExpConfigList));
+	warningsKiller := sysSetConfiguredIOExp(2,ADR($$IOExpConfigList));
 
 
 
@@ -6096,7 +6177,7 @@ END_PROGRAM
 			</src>
 		</aux>
 		<workspace>
-			<root name="chew_simulator" nextID="451">
+			<root name="chew_simulator" nextID="793">
 				<Pou name="main" id="1"/>
 				<GlobalVars name="Global_vars" id="2"/>
 				<Pou name="WatchdogTask" id="5"/>
@@ -6130,7 +6211,7 @@ END_PROGRAM
 	<resources>
 		<configuration template="LogicLab.pct" version="1">
 			<data protocol="root">
-				<project_config nextID="2">
+				<project_config nextID="4">
 					<datacomment/>
 				</project_config>
 				<ArduinoOpta_1p2 template="ArduinoOpta_1p2\ArduinoOpta\ArduinoOpta.pct" version="7" name="Opta" caption="Opta">
@@ -6280,6 +6361,30 @@ END_PROGRAM
 								<dataBlock>%MW200.10</dataBlock>
 								<subindex>0</subindex>
 							</param>
+							<param>
+								<ipa>16395</ipa>
+								<address>16395</address>
+								<name>m_trigger_count</name>
+								<typepar>2</typepar>
+								<typetarg>UINT</typetarg>
+								<value>0</value>
+								<min/>
+								<max/>
+								<ipamin/>
+								<ipamax/>
+								<scale>1</scale>
+								<offs>0</offs>
+								<um/>
+								<description/>
+								<note/>
+								<form/>
+								<accesslevel>3</accesslevel>
+								<readonly>0</readonly>
+								<shortname/>
+								<size>0</size>
+								<dataBlock>%MW200.12</dataBlock>
+								<subindex>0</subindex>
+							</param>
 						</params>
 						<paramsRO>
 							<param>
@@ -6330,6 +6435,102 @@ END_PROGRAM
 								<dataBlock>%MW201.1</dataBlock>
 								<subindex>0</subindex>
 							</param>
+							<param>
+								<ipa>24578</ipa>
+								<address>24578</address>
+								<name>m_o1_valve</name>
+								<typepar>5</typepar>
+								<typetarg>BOOL</typetarg>
+								<value>0</value>
+								<min/>
+								<max/>
+								<ipamin/>
+								<ipamax/>
+								<scale>1</scale>
+								<offs>0</offs>
+								<um/>
+								<description/>
+								<note/>
+								<form/>
+								<accesslevel>3</accesslevel>
+								<readonly>0</readonly>
+								<shortname/>
+								<size>0</size>
+								<dataBlock>%MW201.2</dataBlock>
+								<subindex>0</subindex>
+							</param>
+							<param>
+								<ipa>24579</ipa>
+								<address>24579</address>
+								<name>m_o2_valve</name>
+								<typepar>5</typepar>
+								<typetarg>BOOL</typetarg>
+								<value>0</value>
+								<min/>
+								<max/>
+								<ipamin/>
+								<ipamax/>
+								<scale>1</scale>
+								<offs>0</offs>
+								<um/>
+								<description/>
+								<note/>
+								<form/>
+								<accesslevel>3</accesslevel>
+								<readonly>0</readonly>
+								<shortname/>
+								<size>0</size>
+								<dataBlock>%MW201.3</dataBlock>
+								<subindex>0</subindex>
+							</param>
+							<param>
+								<ipa>24580</ipa>
+								<address>24580</address>
+								<name>m_o3_valve</name>
+								<typepar>5</typepar>
+								<typetarg>BOOL</typetarg>
+								<value>0</value>
+								<min/>
+								<max/>
+								<ipamin/>
+								<ipamax/>
+								<scale>1</scale>
+								<offs>0</offs>
+								<um/>
+								<description/>
+								<note/>
+								<form/>
+								<accesslevel>3</accesslevel>
+								<readonly>0</readonly>
+								<shortname/>
+								<size>0</size>
+								<dataBlock>%MW201.4</dataBlock>
+								<subindex>0</subindex>
+							</param>
+							<param>
+								<ipa>24581</ipa>
+								<address>24581</address>
+								<name>m_o4_valve</name>
+								<typepar>5</typepar>
+								<typetarg>BOOL</typetarg>
+								<value>0</value>
+								<min/>
+								<max/>
+								<ipamin/>
+								<ipamax/>
+								<scale>1</scale>
+								<offs>0</offs>
+								<um/>
+								<description/>
+								<note/>
+								<form/>
+								<accesslevel>3</accesslevel>
+								<readonly>0</readonly>
+								<shortname/>
+								<size>0</size>
+								<dataBlock>%MW201.5</dataBlock>
+								<subindex>0</subindex>
+							</param>
 						</paramsRO>
 						<menus/>
 						<ioMappings_ProgInp resolution="16">
@@ -6346,7 +6547,7 @@ END_PROGRAM
 								<label/>
 							</ioMapping>
 							<ioMapping id="4" IOType="0">
-								<label/>
+								<label>di_Sensor</label>
 							</ioMapping>
 							<ioMapping id="5" IOType="0">
 								<label/>
@@ -6511,6 +6712,86 @@ void loop()
 								</ioMappings_LEDOut>
 							</config>
 						</A0602>
+						<D1608S template="IOExp\D1608S\D1608S.pct" version="1" uniqueID="3" caption="Arduino D1608S - Finder 8A.88_1" name="Arduino D1608S - Finder 8A.88">
+							<config>
+								<ioMappings_ProgInp resolution="14">
+									<ioMapping id="0" IOType="0">
+										<label/>
+									</ioMapping>
+									<ioMapping id="1" IOType="0">
+										<label/>
+									</ioMapping>
+									<ioMapping id="2" IOType="0">
+										<label/>
+									</ioMapping>
+									<ioMapping id="3" IOType="0">
+										<label/>
+									</ioMapping>
+									<ioMapping id="4" IOType="0">
+										<label/>
+									</ioMapping>
+									<ioMapping id="5" IOType="0">
+										<label/>
+									</ioMapping>
+									<ioMapping id="6" IOType="0">
+										<label/>
+									</ioMapping>
+									<ioMapping id="7" IOType="0">
+										<label/>
+									</ioMapping>
+									<ioMapping id="8" IOType="0">
+										<label/>
+									</ioMapping>
+									<ioMapping id="9" IOType="0">
+										<label/>
+									</ioMapping>
+									<ioMapping id="10" IOType="0">
+										<label/>
+									</ioMapping>
+									<ioMapping id="11" IOType="0">
+										<label/>
+									</ioMapping>
+									<ioMapping id="12" IOType="0">
+										<label/>
+									</ioMapping>
+									<ioMapping id="13" IOType="0">
+										<label/>
+									</ioMapping>
+									<ioMapping id="14" IOType="0">
+										<label/>
+									</ioMapping>
+									<ioMapping id="15" IOType="0">
+										<label/>
+									</ioMapping>
+								</ioMappings_ProgInp>
+								<ioMappings_RelayOut>
+									<ioMapping id="0">
+										<label>o1_valve</label>
+									</ioMapping>
+									<ioMapping id="1">
+										<label>o2_valve</label>
+									</ioMapping>
+									<ioMapping id="2">
+										<label>o3_valve</label>
+									</ioMapping>
+									<ioMapping id="3">
+										<label>o4_valve</label>
+									</ioMapping>
+									<ioMapping id="4">
+										<label/>
+									</ioMapping>
+									<ioMapping id="5">
+										<label/>
+									</ioMapping>
+									<ioMapping id="6">
+										<label/>
+									</ioMapping>
+									<ioMapping id="7">
+										<label/>
+									</ioMapping>
+								</ioMappings_RelayOut>
+							</config>
+						</D1608S>
 					</IOExpansions>
 				</ArduinoOpta_1p2>
 			</data>
